@@ -1,0 +1,16 @@
+root = true
+
+# All files
+[*]
+indent_style = space
+insert_final_newline = true
+
+# Config files
+[*.{xml,json,slnx,csproj,props}]
+indent_size = 2
+
+# C# files
+[*.cs]
+indent_size = 4
+tab_width = 4
+max_line_length = 120
