@@ -46,6 +46,15 @@
         "resolved": "9.5.1",
         "contentHash": "+zoqvYzIh69lTSdMGe2o8TBJIEEJBPdHcRsRXp0LJ3GYEgb7kvRI1k2VAhTqwIfNi27LY2/F7VWdQEXGkFwSmQ=="
       },
+      "CommunityToolkit.Aspire.Hosting.Sqlite": {
+        "type": "Direct",
+        "requested": "[9.8.0, )",
+        "resolved": "9.8.0",
+        "contentHash": "Mjz9e+xoNNbGxnl50pYhCYaOXhCp1mBGiA4nedlhSzYc1GoCjl7Esia7sVHfXfZUF6yNZyYGYp9Uy6vnJbWsjw==",
+        "dependencies": {
+          "Aspire.Hosting": "9.5.0"
+        }
+      },
       "CSharpier.MsBuild": {
         "type": "Direct",
         "requested": "[1.0.2, )",
