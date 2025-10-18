@@ -81,10 +81,7 @@ app.Use(
 
             Return the raw HTTP response, no markdown code block only response.
             """,
-                options: new ChatClientAgentRunOptions()
-                {
-                    ChatOptions = new() { Tools = [AIFunctionFactory.Create(sqlTool.RunSql)] },
-                },
+                options: new ChatClientAgentRunOptions() { ChatOptions = new() { Tools = [.. sqlTool.AiTools] } },
                 cancellationToken: context.RequestAborted
             )
             .GetAsyncEnumerator(context.RequestAborted);
