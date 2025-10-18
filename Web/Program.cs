@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -10,7 +9,6 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,7 +24,7 @@ builder.Services.AddTransient<SqlTool>();
 
 builder
     .AddOpenAIClient("chat")
-    .AddChatClient("gpt-4o-mini")
+    .AddChatClient()
     .UseOpenTelemetry(configure: client => client.EnableSensitiveData = true);
 
 builder.AddAIAgent(
