@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -65,64 +66,82 @@ var app = builder.Build();
 
 app.MapDefaultEndpoints();
 
-app.MapGet("/sql", async ([FromQuery] string sql, [FromServices] SqlTool sqlTool) => await sqlTool.RunSql(sql));
-
 app.Use(
     async (HttpContext context, RequestDelegate _) =>
     {
         var sqlTool = context.RequestServices.GetRequiredService<SqlTool>();
         var developer = context.RequestServices.GetRequiredKeyedService<AIAgent>("Developer");
-        var response = developer.RunStreamingAsync(
-            $"""
+
+        var response = developer
+            .RunStreamingAsync(
+                $"""
             The user made a {context.Request.Method} request to {context.Request.Path}. {(
-                context.Request.Method is "POST"
-                    ? $@"With the following body """"""{await ReadAllTextAsync(context.Request.Body, context.RequestAborted)}"""""""
+                context.Request.Method is not "GET"
+                    ? $"With the following body\r\n\r\n{await ReadAllTextAsync(context.Request.Body, context.RequestAborted)}"
                     : ""
             )}
 
-            Return the raw HTML (with optional CSS and JS embedded), no markdown code block only HTML.
+            Return the raw HTTP response, no markdown code block only response.
             """,
-            options: new ChatClientAgentRunOptions()
-            {
-                ChatOptions = new() { Tools = [AIFunctionFactory.Create(sqlTool.RunSql)] },
-            },
-            cancellationToken: context.RequestAborted
-        );
-        var httpResponse = new StringBuilder();
-        await foreach (var r in response)
-        {
-            httpResponse.Append(CodeBlock.Replace(r.Text, ""));
-        }
-        var lines = httpResponse.ToString().Split(["\n", "\r\n"], System.StringSplitOptions.TrimEntries);
-        var headers = lines.TakeWhile(l => !string.IsNullOrWhiteSpace(l));
-        foreach (var header in headers)
+                options: new ChatClientAgentRunOptions()
+                {
+                    ChatOptions = new() { Tools = [AIFunctionFactory.Create(sqlTool.RunSql)] },
+                },
+                cancellationToken: context.RequestAborted
+            )
+            .GetAsyncEnumerator(context.RequestAborted);
+
+        var leftovers = new StringBuilder();
+        await foreach (var line in response.ReadLines())
         {
             if (
-                Status.Match(header) is { Success: true, Groups: var statusGroups }
-                && int.TryParse(statusGroups["code"].ValueSpan, out var statusCode)
+                Status.Match(line) is { Success: true, Groups: var statusGroups }
+                && int.TryParse(statusGroups["status"].ValueSpan, out var statusCode)
             )
             {
                 context.Response.StatusCode = statusCode;
+                leftovers.Clear();
             }
-
-            if (Header.Match(header) is { Success: true, Groups: var headerGroups })
+            else if (Header.Match(line) is { Success: true, Groups: var headerGroups })
             {
-                var headerName = headerGroups["name"].Value;
-                if (headerName is "Content-Length")
+                if (IsAiControllableHeader(headerGroups["name"].ValueSpan))
                 {
-                    continue;
+                    context.Response.Headers[headerGroups["name"].Value] = headerGroups["value"].Value;
                 }
-                context.Response.Headers[headerName] = headerGroups["value"].Value;
+                leftovers.Clear();
+            }
+            else if (IsContentStart(line))
+            {
+                await context.Response.WriteAsync(leftovers.ToString(), context.RequestAborted);
+                leftovers.Clear();
+                if (line is not "")
+                {
+                    await context.Response.WriteAsync(line + "\r\n", context.RequestAborted);
+                }
+                break;
+            }
+            else
+            {
+                leftovers.AppendLine(line);
             }
         }
-        var body = lines.SkipWhile(l => !string.IsNullOrWhiteSpace(l));
-        await context.Response.WriteAsync(string.Join("\r\n", body), context.RequestAborted);
+
+        await context.Response.WriteAsync(leftovers.ToString(), context.RequestAborted);
+        await foreach (var token in response.ReadTokens())
+        {
+            await context.Response.WriteAsync(token, context.RequestAborted);
+        }
 
         static async Task<string> ReadAllTextAsync(Stream stream, CancellationToken cancellationToken)
         {
             using var reader = new StreamReader(stream);
             return await reader.ReadToEndAsync(cancellationToken);
         }
+
+        static bool IsAiControllableHeader(ReadOnlySpan<char> headerName) =>
+            !headerName.Equals("Content-Length", StringComparison.OrdinalIgnoreCase);
+
+        static bool IsContentStart(string line) => line is "" || line.StartsWith('<') || line.StartsWith('{');
     }
 );
 
@@ -133,9 +152,6 @@ partial class Program
     [GeneratedRegex(@"HTTP/\d\.\d (?<code>\d+)")]
     static partial Regex Status { get; }
 
-    [GeneratedRegex(@"^(?<name>.*?):\s*(?<value>.*)$")]
+    [GeneratedRegex(@"^(?<name>[A-Za-z\-]*?):\s*(?<value>[ -~]*)$")]
     static partial Regex Header { get; }
-
-    [GeneratedRegex(@"^```.*?$", RegexOptions.Multiline)]
-    static partial Regex CodeBlock { get; }
 }
