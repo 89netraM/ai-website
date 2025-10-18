@@ -3,8 +3,8 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>AiWebsite.ApiService</RootNamespace>
-    <AssemblyName>AiWebsite.ApiService</AssemblyName>
+    <RootNamespace>AiWebsite.Web</RootNamespace>
+    <AssemblyName>AiWebsite.Web</AssemblyName>
     <UserSecretsId>fcc162b5-f782-47b1-a2d7-e111cfc270d9</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
